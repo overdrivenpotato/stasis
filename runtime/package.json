@@ -1,0 +1,16 @@
+{
+  "name": "stasis",
+  "version": "0.1.0-alpha",
+  "description": "A minimal runtime for WebAssembly projects",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Marko Mijalkovic <marko.mijalkovic97@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^2.8.1",
+    "webpack": "^4.6.0"
+  }
+}

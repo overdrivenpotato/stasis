@@ -1,0 +1,16 @@
+[package]
+name = "stasis"
+version = "0.1.0"
+authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+
+[profile.release]
+lto = true
+opt-level = 's'
