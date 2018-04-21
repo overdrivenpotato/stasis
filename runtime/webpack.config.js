@@ -2,9 +2,9 @@ const path = require('path')
 
 module.exports = {
   mode: 'production',
-  entry: path.resolve(__dirname, 'dist/index.js'),
+  entry: path.resolve(__dirname, 'dist/bootstrap.js'),
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bootstrap.js',
+    filename: 'stasis.min.js',
   },
 }
