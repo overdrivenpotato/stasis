@@ -4,9 +4,12 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width" />
         <title>Stasis Test</title>
-        <script>exports = {}</script>
-        <script src="./runtime/build/index.js"></script>
-        <script>window.__STASIS_LOAD__('rust/target/wasm32-unknown-unknown/release/stasis.wasm')</script>
+        <script
+            id="stasis"
+            src="https://bundle.run/stasis@0.1.0-alpha/dist/stasis.min.js"
+            type="text/javascript"
+            data-binary="rust/target/wasm32-unknown-unknown/release/stasis.wasm"
+        ></script>
     </head>
     <body>
     </body>
