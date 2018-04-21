@@ -1,6 +1,3 @@
-import 'promise-polyfill/src/polyfill'
-import 'whatwg-fetch'
-
 import Wrapper from './wrapper'
 import { Pointer } from './types'
 

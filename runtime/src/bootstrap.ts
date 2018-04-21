@@ -1,3 +1,6 @@
+import 'promise-polyfill/src/polyfill'
+import 'whatwg-fetch'
+
 import load from './index'
 
 const warn = (...args: Array<any>) => {
