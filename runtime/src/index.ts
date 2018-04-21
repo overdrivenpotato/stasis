@@ -1,4 +1,5 @@
-// fetch, Promise
+import 'promise-polyfill/src/polyfill'
+import 'whatwg-fetch'
 
 type Pointer = number
 
@@ -193,7 +194,7 @@ const load = async (url: string): Promise<void> => {
         interface Call {
           id: number
           name: string
-          args: Array<any>
+          args: any
         }
 
         const call: Call = wrapper.json(ptr, len)
@@ -220,5 +221,4 @@ const load = async (url: string): Promise<void> => {
 
 (window as any).__STASIS_LOAD__ = load
 
-// ??
-export default undefined
+export default load
