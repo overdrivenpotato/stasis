@@ -147,7 +147,7 @@ would remain identical.
         <title>test</title>
         <script
             id="stasis"
-            src="http://bundle.run/stasis@0.1.0-alpha.2/dist/stasis.min.js"
+            src="http://bundle.run/stasis@0.1.0-alpha.3/dist/stasis.min.js"
             type="text/javascript"
             data-binary="target/wasm32-unknown-unknown/release/stasis-test.wasm"
         ></script>
