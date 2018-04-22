@@ -1,4 +1,3 @@
-
 extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
@@ -23,8 +22,6 @@ macro_rules! stasis {
         #[no_mangle]
         #[doc(hidden)]
         pub extern "C" fn __stasis_entrypoint() {
-            $crate::setup_panic();
-
             // Mount the crate functions first.
             $crate::load();
 
@@ -202,8 +199,39 @@ pub mod console {
     }
 }
 
+/// Setup the panic handler.
+fn setup_panic() {
+    use std::panic;
+
+    panic::set_hook(Box::new(|info| {
+        let message = info
+            .location()
+            .map(|loc| {
+                format!("Panic!\nLine {} in {}", loc.line(), loc.file())
+            })
+            .unwrap_or("Panic occured in unknown location".to_owned());
+
+        let payload = info
+            .payload()
+            .downcast_ref::<String>()
+            .map(|s| s.clone())
+            .or_else(|| {
+                info.payload()
+                    .downcast_ref::<&str>()
+                    .map(|&s| s.to_owned())
+            })
+            .unwrap_or("No panic info.".to_owned());
+
+        let s = format!("{}:\n\n{}", message, payload);
+
+        console::error(&s);
+    }));
+}
+
 #[doc(hidden)]
 pub fn load() {
+    setup_panic();
+
     let mut m = Module::new();
 
     // Common global functions.
@@ -236,33 +264,4 @@ pub fn load() {
     unsafe {
         STASIS_PRELUDE = Some(m);
     }
-}
-
-#[doc(hidden)]
-pub fn setup_panic() {
-    use std::panic;
-
-    panic::set_hook(Box::new(|info| {
-        let message = info
-            .location()
-            .map(|loc| {
-                format!("Panic!\nLine {} in {}", loc.line(), loc.file())
-            })
-            .unwrap_or("Panic occured in unknown location".to_owned());
-
-        let payload = info
-            .payload()
-            .downcast_ref::<String>()
-            .map(|s| s.clone())
-            .or_else(|| {
-                info.payload()
-                    .downcast_ref::<&str>()
-                    .map(|&s| s.to_owned())
-            })
-            .unwrap_or("No panic info.".to_owned());
-
-        let s = format!("{}:\n\n{}", message, payload);
-
-        console::error(&s);
-    }));
 }

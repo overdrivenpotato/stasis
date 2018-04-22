@@ -1,10 +1,7 @@
 [package]
 name = "stasis"
-version = "0.1.0"
+version = "0.1.0-alpha"
 authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
-
-[lib]
-crate-type = ["cdylib"]
 
 [dependencies]
 serde = "1.0"
