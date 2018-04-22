@@ -1,6 +1,6 @@
 [package]
 name = "stasis"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
 description = "A minimal runtime for WebAssembly projects"
 license = "MIT"

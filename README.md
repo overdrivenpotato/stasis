@@ -133,7 +133,7 @@ version = "0.1.0"
 authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
 
 [dependencies]
-stasis = "0.1.0-alpha"
+stasis = "0.1.0-alpha.1"
 ```
 
 `src/main.rs`

@@ -43,18 +43,18 @@ macro_rules! stasis {
     }
 }
 
-struct Module {
+pub struct Module {
     id: u32,
 }
 
 impl Module {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             id: unsafe { ::__rt::__stasis_module_create() }
         }
     }
 
-    fn register<'a, 'b, 'c>(&'a mut self, name: &'b str, code: &'c str) {
+    pub fn register<'a, 'b, 'c>(&'a mut self, name: &'b str, code: &'c str) {
         #[derive(Serialize)]
         struct Register<'a, 'b> {
             id: u32,
@@ -79,7 +79,7 @@ impl Module {
         mem::forget(bytes);
     }
 
-    unsafe fn call<T, R>(&self, name: &str, args: T) -> R
+    pub unsafe fn call<T, R>(&self, name: &str, args: T) -> R
     where
         T: Serialize,
         R: for<'a> Deserialize<'a>
