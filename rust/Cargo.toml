@@ -2,6 +2,8 @@
 name = "stasis"
 version = "0.1.0-alpha"
 authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
+description = "A minimal runtime for WebAssembly projects"
+license = "MIT"
 
 [dependencies]
 serde = "1.0"
