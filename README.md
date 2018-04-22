@@ -61,8 +61,8 @@ environment is language agnostic. I currently have no plans to create bindings
 to languages other than rust, however feel free to open a pull request if you
 would like to do so yourself.
 
-## Serde
+## Runtime API
 
 Stasis uses JSON as a transfer format between JS and WebAssembly. This may be
-changed in the future, however doing so would effectively break the protocol
-in the ABI.
+changed in the future, however Stasis will make sure to be backwards compatible
+from both the library *and* runtime point of view.
