@@ -42,9 +42,11 @@ stasis! {{
 }}
 ```
 
-This library is intended to be used as a base for other libraries. The main
-goals of this project are **high performance**, **small size**, and
-an **opinionated design**.
+This library is intended to be used as a base for other libraries. The goal of
+this project is to provide the ability to completely eject from the javascript
+ecosystem.
+
+**A complete example can be found at the bottom of this document.**
 
 ## Performance
 
@@ -66,3 +68,62 @@ would like to do so yourself.
 Stasis uses JSON as a transfer format between JS and WebAssembly. This may be
 changed in the future, however Stasis will make sure to be backwards compatible
 from both the library *and* runtime point of view.
+
+## Complete Example
+
+This is a complete application that will print `Hello world!` to the browser
+console. To run it in chrome, open a webserver at the project root and navigate
+to `index.html`. If you are using firefox, you can simply open the `index.html`
+file directly.
+
+```
+.
+├── Cargo.toml
+├── index.html
+└── src
+    └── main.rs
+```
+
+`Cargo.toml`
+
+```toml
+[package]
+name = "stasis-test"
+version = "0.1.0"
+authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
+
+[dependencies]
+stasis = "0.1.0-alpha"
+```
+
+`src/main.rs`
+
+```rust
+#[macro_use] extern crate stasis;
+
+use stasis::console;
+
+stasis! {{
+    console::log("Hello world!");
+}}
+```
+
+`index.html`
+
+```html
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>test</title>
+        <script
+            id="stasis"
+            src="http://bundle.run/stasis@0.1.0-alpha.2/dist/stasis.min.js"
+            type="text/javascript"
+            data-binary="target/wasm32-unknown-unknown/release/stasis-test.wasm"
+        ></script>
+    </head>
+    <body></body>
+</html>
+```
