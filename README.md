@@ -44,7 +44,7 @@ stasis! {{
 
 This library is intended to be used as a base for other libraries. The goal of
 this project is to provide the ability to completely eject from the javascript
-ecosystem.
+ecosystem, while also allowing interop with existing javascript applications.
 
 **A complete example can be found at the bottom of this document.**
 
@@ -69,7 +69,31 @@ Stasis uses JSON as a transfer format between JS and WebAssembly. This may be
 changed in the future, however Stasis will make sure to be backwards compatible
 from both the library *and* runtime point of view.
 
-## Complete Example
+# Embedding Stasis into an existing project
+
+Stasis is designed to be easily embeddable in existing projects. The runtime is
+not global, so you can have many instances if needed. The `stasis` package on
+npm exports a function which accepts a path to the binary.
+
+Example:
+
+```javascript
+import load from 'stasis'
+
+load('/code/bundle1.wasm')
+  .then(() => {
+    console.log('Bundle 1\'s main() has finished running!')
+  })
+
+load('/code/bundle2.wasm')
+  .then(() => {
+    console.log('Bundle 2\'s main() has finished running!')
+  })
+
+// ...
+```
+
+# Complete Standalone Example
 
 This is a complete application that will print `Hello world!` to the browser
 console. To run it in chrome, open a webserver at the project root and navigate
@@ -109,6 +133,10 @@ stasis! {{
 ```
 
 `index.html`
+
+NOTE: This file only needs to be written once. This is only necessary to allow
+Stasis to bootstrap the WebAssembly binary. In a full application, this file
+would remain identical.
 
 ```html
 <!DOCTYPE html>
