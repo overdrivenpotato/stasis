@@ -22,12 +22,9 @@ step for you. All this requires is a minimal html document:
 <!DOCTYPE html>
 <html>
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width" />
-        <title>test</title>
         <script
             id="stasis"
-            src="http://bundle.run/stasis@0.1.0-alpha.3/dist/stasis.min.js"
+            src="http://bundle.run/stasis@0.1.0-alpha.4/dist/stasis.min.js"
             type="text/javascript"
             data-binary="THE_URL_TO_YOUR_BINARY_GOES_HERE"
         ></script>

@@ -142,12 +142,9 @@ would remain identical.
 <!DOCTYPE html>
 <html>
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width" />
-        <title>test</title>
         <script
             id="stasis"
-            src="http://bundle.run/stasis@0.1.0-alpha.3/dist/stasis.min.js"
+            src="http://bundle.run/stasis@0.1.0-alpha.4/dist/stasis.min.js"
             type="text/javascript"
             data-binary="target/wasm32-unknown-unknown/release/stasis-test.wasm"
         ></script>
