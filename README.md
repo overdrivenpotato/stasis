@@ -48,13 +48,35 @@ ecosystem, while also allowing interop with existing javascript applications.
 
 **A complete example can be found at the bottom of this document.**
 
-## Performance
+# FAQ
+
+## Why not [`stdweb`](https://github.com/koute/stdweb)?
+
+The goal of `stdweb` is to provide Rust bindings to Web APIs while maintaining
+interoperability between the two languages. Stasis takes a different approach,
+it views javascript as something closer to assembly that you can opt-in to use.
+Stasis allows you to treat javascript code the same way we treat `unsafe`, by
+creating safe Rust-first wrappers around the javascript APIs offered to us in
+the browser.
+
+## How does this work?
+
+Stasis creates a map of all registered modules and functions. When calling a
+registered function from WebAssembly, objects describing the request are passed
+in JSON format. This may be changed in the future, however Stasis will make sure
+to be backwards compatible from both the library *and* runtime point of view.
+
+## What's the performance like?
 
 Registering a function compiles it immediately with the use of `eval`. This
 allows the browser JS engine to optimize on a per-function basis, with no
 interpreter overhead at the time of a call.
 
-TODO: Benchmarks
+For tight loops that call heavily into javascript, library authors are
+encouraged to batch data if possible. This will minimize the overhead present
+when calling javascript code from WebAssembly.
+
+### TODO: Benchmarks here.
 
 ## Why only rust?
 
@@ -63,13 +85,7 @@ environment is language agnostic. I currently have no plans to create bindings
 to languages other than rust, however feel free to open a pull request if you
 would like to do so yourself.
 
-## Runtime API
-
-Stasis uses JSON as a transfer format between JS and WebAssembly. This may be
-changed in the future, however Stasis will make sure to be backwards compatible
-from both the library *and* runtime point of view.
-
-# Embedding Stasis into an existing project
+# Embedding Stasis into existing javascript
 
 Stasis is designed to be easily embeddable in existing projects. The runtime is
 not global, so you can have many instances if needed. The `stasis` package on

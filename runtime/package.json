@@ -2,6 +2,10 @@
   "name": "stasis",
   "version": "0.1.0-alpha.4",
   "description": "A minimal runtime for WebAssembly projects",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/overdrivenpotato/stasis"
+  },
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsc --watch",
