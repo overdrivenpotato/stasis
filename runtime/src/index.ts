@@ -1,36 +1,28 @@
 import Wrapper from './wrapper'
+import Binary from './binary'
 import { Pointer } from './types'
 
-class Handle {
-  private wrapper?: Wrapper
-
-  constructor() {}
-
-  public get(): undefined | Wrapper {
-    return this.wrapper
-  }
-
-  public set(wrapper: Wrapper) {
-    this.wrapper = wrapper
-  }
+interface Handle {
+  wrapper: Wrapper
+  binary: Binary
 }
 
 const load = async (url: string): Promise<void> => {
   const response = await fetch(url)
   const bytes = await response.arrayBuffer()
 
-  const handle = new Handle()
+  let getHandle: () => Handle | null = () => null
 
   const env = {
     __stasis_module_create(): number {
-      const wrapper = handle.get()
-      if (!wrapper) return -1
+      const handle = getHandle()
+      if (!handle) return -1
 
-      return wrapper.createModule()
+      return handle.wrapper.createModule()
     },
     __stasis_register(ptr: Pointer, len: number) {
-      const wrapper = handle.get()
-      if (!wrapper) return
+      const handle = getHandle()
+      if (!handle) return
 
       interface Register {
         id: number
@@ -38,15 +30,31 @@ const load = async (url: string): Promise<void> => {
         code: string
       }
 
-      const json: Register = wrapper.json(ptr, len)
+      const json: Register = handle.binary.getJson(ptr, len)
 
-      wrapper
+      handle.wrapper
         .getModule(json.id)
         .register(json.name, json.code)
     },
+    __stasis_register_callback(ptr: Pointer, len: number) {
+      const handle = getHandle()
+      if (!handle) return
+
+      interface RegisterCallback {
+        module: number
+        callback: number
+        name: string
+      }
+
+      const json: RegisterCallback = handle.binary.getJson(ptr, len)
+
+      handle.wrapper
+        .getModule(json.module)
+        .registerCallback(json.name, json.callback)
+    },
     __stasis_call(ptr: Pointer, len: number): Pointer {
-      const wrapper = handle.get()
-      if (!wrapper) return 0
+      const handle = getHandle()
+      if (!handle) return 0
 
       interface Call {
         id: number
@@ -54,22 +62,23 @@ const load = async (url: string): Promise<void> => {
         args: any
       }
 
-      const call: Call = wrapper.json(ptr, len)
+      const call: Call = handle.binary.getJson(ptr, len)
 
-      const ret = wrapper
+      const ret = handle.wrapper
         .getModule(call.id)
         .call(call.name, call.args)
 
-      return wrapper.pair(ret)
+      return handle.binary.makePair(ret)
     },
   }
 
   const WebAssembly: any = (window as any).WebAssembly
   const wasm = await WebAssembly.instantiate(bytes, { env })
 
-  const wrapper = new Wrapper(wasm.instance.exports)
-  handle.set(wrapper)
-  wrapper.main()
+  const binary = new Binary(wasm.instance.exports)
+  const wrapper = new Wrapper(binary)
+  getHandle = () => ({ wrapper, binary })
+  binary.main()
 }
 
 export default load
