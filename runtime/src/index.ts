@@ -7,9 +7,59 @@ interface Handle {
   binary: Binary
 }
 
-const load = async (url: string): Promise<void> => {
-  const response = await fetch(url)
-  const bytes = await response.arrayBuffer()
+const getBytes = (url: string): Promise<Uint8Array> => (
+  new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest()
+
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          resolve(new Uint8Array(xhr.response))
+        }
+      }
+
+      xhr.responseType = 'arraybuffer'
+      xhr.open('GET', url)
+      xhr.send()
+    } catch(e) {
+      reject(e)
+    }
+  })
+)
+
+// Load a new JS script.
+const loadScript = (src: string): Promise<void> => (
+  new Promise((resolve, _reject) => {
+    const el = document.createElement('script')
+
+    el.onload = () => {
+      resolve()
+    }
+
+    el.src = src
+    document.head.appendChild(el)
+  })
+)
+
+const getWebAssembly = async (): Promise<any> => {
+  const native = (window as any).WebAssembly
+
+  if (native) {
+    return Promise.resolve(native)
+  } else {
+    console.warn(
+      'Stasis: attempting to use fallback webassembly interpreter.\n' +
+      'It is still in development, this will most likely fail for now.'
+    )
+
+    // This is most likely going to fail.
+    await loadScript('https://bundle.run/webassemblyjs')
+    return (window as any).webassemblyjs
+  }
+}
+
+export default async (url: string): Promise<void> => {
+  const bytes = await getBytes(url)
 
   let getHandle: () => Handle | null = () => null
 
@@ -72,7 +122,7 @@ const load = async (url: string): Promise<void> => {
     },
   }
 
-  const WebAssembly: any = (window as any).WebAssembly
+  const WebAssembly = await getWebAssembly()
   const wasm = await WebAssembly.instantiate(bytes, { env })
 
   const binary = new Binary(wasm.instance.exports)
@@ -80,5 +130,3 @@ const load = async (url: string): Promise<void> => {
   getHandle = () => ({ wrapper, binary })
   binary.main()
 }
-
-export default load

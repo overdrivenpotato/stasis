@@ -5,9 +5,9 @@ to your WebAssembly binary. For more details on creating this binary, visit
 [the github repo](https://github.com/overdrivenpotato/stasis).
 
 ```javascript
-import load from 'stasis'
+import stasis from 'stasis'
 
-load('/_/app.wasm')
+stasis('/_/app.wasm')
   .then(() => {
     console.log('The main function in app.wasm has finished running.')
   })

@@ -1,7 +1,6 @@
 import 'promise-polyfill/src/polyfill'
-import 'whatwg-fetch'
 
-import load from './index'
+import stasis from './index'
 
 const warn = (...args: Array<any>) => {
   console.warn(
@@ -22,7 +21,7 @@ if (!el) {
     warn('Stasis loaded but data-binary attribute is not present on:\n', el)
   } else {
     try {
-      load(binary)
+      stasis(binary)
     } catch(e) {
       console.error('Failed to load Stasis module:\n', e)
     }
