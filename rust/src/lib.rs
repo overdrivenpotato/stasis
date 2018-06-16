@@ -14,7 +14,10 @@ pub mod __rt;
 mod callbacks;
 
 #[macro_export]
-/// A stasis entry point.
+/// Declare the main function.
+///
+/// This is equivalent to `fn main() { ... }`, however it also declares hooks
+/// necessary for stasis to load the binary.
 macro_rules! stasis {
     ($body:block) => {
         #[allow(unused)]
@@ -51,6 +54,9 @@ macro_rules! stasis {
     }
 }
 
+/// A unique module instance.
+///
+/// This
 #[derive(Clone, Copy)]
 pub struct Module {
     id: u32,
@@ -253,27 +259,12 @@ fn prelude() -> &'static mut Module {
     unsafe { STASIS_PRELUDE.as_mut().unwrap() }
 }
 
-pub fn alert<T>(t: T) where T: Serialize {
+/// JavaScript alert.
+///
+/// Equivalent to `window.alert(...)`.
+pub fn alert<T>(t: T) where T: ToString {
     unsafe {
-        prelude().call("alert", t)
-    }
-}
-
-pub struct Performance {}
-
-impl Performance {
-    pub fn new() -> Self {
-        let () = unsafe {
-            prelude().call("performance.start", ())
-        };
-
-        Performance {}
-    }
-
-    pub fn stop(self) -> u32 {
-        unsafe {
-            prelude().call("performance.end", ())
-        }
+        prelude().call("alert", t.to_string())
     }
 }
 
@@ -282,18 +273,28 @@ pub mod console {
 
     use super::prelude;
 
+    /// Log a message to the console.
+    ///
+    /// This can be called with multiple arguments in a tuple or array.
     pub fn log<T>(t: T) where T: Serialize {
         unsafe {
             prelude().call("console.log", t)
         }
     }
 
+    /// Log an error to the console.
+    ///
+    /// This can be called with multiple arguments in a tuple or array.
     pub fn error<T>(t: T) where T: Serialize {
         unsafe {
             prelude().call("console.error", t)
         }
     }
 
+
+    /// Log a warning to the console.
+    ///
+    /// This can be called with multiple arguments in a tuple or array.
     pub fn warn<T>(t: T) where T: Serialize {
         unsafe {
             prelude().call("console.warn", t)
@@ -311,7 +312,7 @@ fn setup_panic() {
             .map(|loc| {
                 format!("Panic!\nLine {} in {}", loc.line(), loc.file())
             })
-            .unwrap_or("Panic occured in unknown location".to_owned());
+            .unwrap_or("Panic in unknown location".to_owned());
 
         let payload = info
             .payload()
@@ -341,24 +342,8 @@ pub fn load() {
     m.register("console.error", "console.error");
     m.register("console.warn", "console.warn");
     m.register("alert", r#"
-        function() {
-            alert.apply(window, arguments);
-        }
-    "#);
-    m.register("performance.start", r#"
-        function() {
-            this.data.performance = performance.now();
-        }
-    "#);
-    m.register("performance.end", r#"
-        function() {
-            var start = this.data.performance;
-            var end = performance.now();
-
-            // Delete the performance data.
-            delete this.data.performance;
-
-            return end - start;
+        function(s) {
+            window.alert(s);
         }
     "#);
 

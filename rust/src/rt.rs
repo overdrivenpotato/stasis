@@ -1,3 +1,7 @@
+//! Runtime hooks for the WebAssembly binary.
+//!
+//! The contents of this module are *not guaranteed to be stable!*
+
 use std::mem;
 
 use serde_json;
