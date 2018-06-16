@@ -15,7 +15,7 @@ export default class Module {
   }
 
   public register(name: string, f: string) {
-    this.functions[name] = eval(`(${f})`)
+    this.functions[name] = new Function(`return (${f})`)()
   }
 
   public registerCallback(name: string, pointer: Pointer) {
