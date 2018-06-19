@@ -11,7 +11,10 @@ use serde::{Serialize, Deserialize};
 /// The runtime module.
 pub mod __rt;
 
+pub mod global;
 mod callbacks;
+
+pub use global::{Global, GlobalLock};
 
 #[macro_export]
 /// Declare the main function.
