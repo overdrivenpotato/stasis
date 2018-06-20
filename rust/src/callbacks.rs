@@ -1,11 +1,18 @@
 //! Easy handling of JavaScript callbacks.
 //!
-//! This module is designed to work well with [`global`].
+//! This module is designed to work together with `global`. JavaScript
+//! callbacks are effectively global FFI and so handling these callbacks involves
+//! a global callback manager. `Callbacks` performs this task.
 //!
 //! ```rust,no_run
 //! #[macro_use] extern crate stasis;
 //!
-//! use stasis::{console, Module, Global, Callbacks};
+//! use stasis::{
+//!     console,
+//!     Module,
+//!     Global,
+//!     callbacks::{Callbacks, CallbackId},
+//! };
 //!
 //! static MODULE: Global<TestModule> = Global::INIT;
 //! static CALLBACKS: Global<Callbacks<()>> = Global::INIT;
@@ -16,11 +23,11 @@
 //!     fn default() -> Self {
 //!         let m = Module::new();
 //!
-//!         m.register_callback("done", |id: u32| {
+//!         m.register_callback("done", |id: CallbackId| {
 //!             Callbacks::call(&CALLBACKS, id, ());
 //!         });
 //!
-//!         m.register("rand", r#"
+//!         m.register("setTimeout", r#"
 //!             function(id, ms) {
 //!                 var done = this.callbacks.done;
 //!
@@ -35,13 +42,22 @@
 //! }
 //!
 //! stasis! {{
-//!     const TEST_ID: u32 = 0;
 //!     const DELAY: u32 = 1000;
+//!
+//!     let id = CALLBACKS
+//!         .lock()
+//!         .create();
 //!
 //!     CALLBACKS
 //!         .lock()
-//!         .register(TEST_ID, || {
-//!             console::log("Timeout finished.");
+//!         .register(id, move || {
+//!             // Our return value is the unit type.
+//!             let value: () = CALLBACKS
+//!                 .lock()
+//!                 .get(id)
+//!                 .unwrap();
+//!
+//!             console::log(format!("Timeout finished: {:?}", value));
 //!         });
 //!
 //!     // This will print "Timeout finished" after 1000 milliseconds.
@@ -49,7 +65,7 @@
 //!         MODULE
 //!             .lock()
 //!             .0
-//!             .call("rand", (TEST_ID, DELAY))
+//!             .call("setTimeout", (id, DELAY))
 //!     };
 //! }}
 //! ```
@@ -58,15 +74,25 @@ use std::collections::HashMap;
 
 use global::Global;
 
+/// A reference to a registered callback.
+///
+/// This callback may be waiting to be called, or it may have already been
+/// called.
+#[derive(Serialize, Deserialize, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct CallbackId(u32);
+
 /// A callback manager for asynchronous JavaScript functions.
 pub struct Callbacks<T> {
-    map: HashMap<u32, Callback<T>>,
+    counter: u32,
+    map: HashMap<CallbackId, Callback<T>>,
 }
 
+/// Manual impl to avoid the requirement of `T: Default`.
 impl<T> Default for Callbacks<T> {
     fn default() -> Self {
         Self {
-            map: Default::default(),
+            counter: 0,
+            map: HashMap::new(),
         }
     }
 }
@@ -77,10 +103,17 @@ enum Callback<T> {
 }
 
 impl<T: 'static> Callbacks<T> {
+    /// Fetch a new callback ID.
+    pub fn create(&mut self) -> CallbackId {
+        let id = CallbackId(self.counter);
+        self.counter += 1;
+        id
+    }
+
     /// Register a callback to be called.
     ///
-    /// This will overwrite any existing callback with the same ID.
-    pub fn register<F>(&mut self, id: u32, f: F)
+    /// This will overwrite any existing callback.
+    pub fn register<F>(&mut self, id: CallbackId, f: F)
     where
         F: FnOnce() + Send + 'static
     {
@@ -97,11 +130,10 @@ impl<T: 'static> Callbacks<T> {
         })));
     }
 
-    /// Return a callback with a global handle.
+    /// Call a registered callback and assign a value.
     ///
-    /// This will return true if there was a registered callback that was
-    /// waiting to be called.
-    pub fn call(global_self: &'static Global<Self>, id: u32, t: T) -> bool {
+    /// This will return true if the callback was not already called.
+    pub fn call(global_self: &'static Global<Self>, id: CallbackId, t: T) -> bool {
         let mut lock = global_self.lock();
 
         // Insert the success value.
@@ -132,7 +164,7 @@ impl<T: 'static> Callbacks<T> {
     /// Get the return value of a callback.
     ///
     /// This will retrieve the return value of a callback if it is available.
-    pub fn get(&mut self, id: u32) -> Option<T> {
+    pub fn get(&mut self, id: CallbackId) -> Option<T> {
         match self.map.remove(&id) {
             Some(Callback::Ready(r)) => Some(r),
             Some(Callback::Waiting(f)) => {
