@@ -19,6 +19,11 @@ pub struct Global<T> {
     inner: UnsafeCell<Option<Arc<Mutex<T>>>>,
 }
 
+// The inner value is only used to make an immutable call to `.clone()`. The
+// only time it is mutated is within the `Once` guard. This means all threads
+// will attempt to get *immutable* access and block until only one thread as
+// succeeded. That makes this `impl` safe only if `.ensure_exists()` is called
+// whenever accessing the inner `UnsafeCell` value.
 unsafe impl<T> Sync for Global<T> {}
 
 impl<T: Default> Global<T> {
@@ -64,12 +69,17 @@ impl<T: Default> Global<T> {
     /// Because WebAssembly is currently single threaded, this operation is
     /// cheap. This may change in the future, however this code will continue to
     /// work on multi-threaded systems.
+    ///
+    /// This method will block the current thread until the lock is available.
+    /// If this is called recursively in WebAssembly, it will panic.
     pub fn lock(&'static self) -> GlobalLock<T> where T: 'static {
+        // Important: this *must* be called before accessing the inner pointer.
         self.ensure_exists();
 
         let ptr = self.inner.get();
 
-        // This is safe as we're
+        // This is safe as the clone is an immutable operation. The pointer data
+        // cannot possibly mutate while another thread is accessing it.
         let opt = unsafe { (*ptr).clone() };
 
         GlobalLock::new(opt.unwrap())
@@ -88,7 +98,6 @@ pub struct GlobalLock<T: 'static> {
 impl<T: 'static> Drop for GlobalLock<T> {
     fn drop(&mut self) {
         // Drop the guard *before* the mutex.
-
         unsafe {
             ManuallyDrop::drop(&mut self.guard);
             ManuallyDrop::drop(&mut self.mutex);
@@ -99,7 +108,10 @@ impl<T: 'static> Drop for GlobalLock<T> {
 impl<T: 'static> GlobalLock<T> {
     /// Construct a new `GlobalLock` with a reference-counted mutex.
     fn new(mut mutex: Arc<Mutex<T>>) -> Self {
+        // Both the guard and the mutex are moved into the lock. Rust does not
+        // support self-referential lifetimes so we must use unsafe code here.
         unsafe {
+            // Remove the lifetime constraints on a borrow.
             let ptr = &mut mutex as *mut Arc<Mutex<T>>;
 
             // This should never fail.
@@ -126,5 +138,71 @@ impl<T: 'static> Deref for GlobalLock<T> {
 impl<T: 'static> DerefMut for GlobalLock<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut *self.guard
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{
+        thread,
+        sync::mpsc,
+        time::Duration,
+    };
+
+    use super::Global;
+
+    #[test]
+    fn no_race_condition() {
+        static NUM: Global<i32> = Global::INIT;
+
+        let mut v = Vec::new();
+
+        for _ in 0..1000 {
+            v.push(thread::spawn(|| {
+                for _ in 0..100 {
+                    *NUM.lock() += 1;
+                }
+            }));
+        }
+
+        for thread in v {
+            thread.join().unwrap();
+        }
+
+        assert_eq!(*NUM.lock(), 100_000);
+    }
+
+    // Ensure a lock will block.
+    #[test]
+    fn no_race_extended_lock() {
+        static NUM: Global<i32> = Global::INIT;
+
+        let (tx, rx) = mpsc::channel();
+
+        let t1 = thread::spawn(move || {
+            let mut lock = NUM.lock();
+
+            // Go.
+            tx.send(()).unwrap();
+
+            thread::sleep(Duration::new(0, 1000000));
+
+            *lock += 1;
+        });
+
+        let t2 = thread::spawn(move || {
+            // Wait for the signal.
+            let () = rx.recv().unwrap();
+
+            let mut lock = NUM.lock();
+
+            *lock += 1;
+        });
+
+
+        t1.join().unwrap();
+        t2.join().unwrap();
+
+        assert_eq!(*NUM.lock(), 2);
     }
 }

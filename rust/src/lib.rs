@@ -67,8 +67,6 @@ macro_rules! stasis {
 }
 
 /// A unique module instance.
-///
-/// This
 #[derive(Clone, Copy)]
 pub struct Module {
     id: u32,
