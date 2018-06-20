@@ -20,6 +20,7 @@ mod rt_callbacks;
 
 pub mod global;
 pub mod callbacks;
+pub mod tutorial;
 
 pub use global::{Global, GlobalLock};
 pub use callbacks::Callbacks;
