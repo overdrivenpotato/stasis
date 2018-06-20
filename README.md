@@ -8,6 +8,7 @@ A complete runtime for rust applications in the browser.
 * No cargo web
 * No JavaScript build system
 * No build step at all
+* Stable Rust
 * Full web applications in pure rust
 
 ```rust
@@ -30,9 +31,7 @@ stasis! {{
     "#);
 
     // Call the registered JavaScript function.
-    let added = unsafe {
-        module.call("add", (1, 2))
-    };
+    let added: i32 = module.call("add", (1, 2));
 
     // Functions can accept multiple arguments in the form of tuples.
     console::log(("Added 1 and 2 to get:", added));
@@ -58,6 +57,15 @@ it views JavaScript as something closer to assembly that you can opt-in to use.
 Stasis allows you to treat JavaScript code the same way we treat `unsafe`, by
 creating safe Rust-first wrappers around the JavaScript APIs offered to us in
 the browser.
+
+## What about `#![feature(wasm_syscall)]`?
+
+WebAssembly syscalls in Rust are not currently specific to JavaScript. This
+means we cannot use the API to craft JavaScript calls. Besides this, stasis aims
+to work on stable rust. Eventually, if custom syscalls can be implemented, the
+`stasis!` macro will be able to be removed. This is ideal as it does not force
+consumers of this library to use a specific tool whether it is `stasis`,
+`stdweb`, `wasm-bindgen`, or anything else.
 
 ## How does this work?
 
