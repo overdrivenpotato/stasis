@@ -11,10 +11,18 @@ use serde::{Serialize, Deserialize};
 /// The runtime module.
 pub mod __rt;
 
+/// Internal callback handling.
+///
+/// This is not the same as the `callbacks` module, that is for users of this
+/// library to create their own callbacks. This module handles the raw callback
+/// interface.
+mod rt_callbacks;
+
 pub mod global;
-mod callbacks;
+pub mod callbacks;
 
 pub use global::{Global, GlobalLock};
+pub use callbacks::Callbacks;
 
 #[macro_export]
 /// Declare the main function.
@@ -195,7 +203,7 @@ impl Module {
             name: &'a str,
         }
 
-        let id = callbacks::register(f);
+        let id = rt_callbacks::register(f);
 
         let reg = RegisterCallback {
             module: self.id,
@@ -256,32 +264,52 @@ impl Module {
     }
 }
 
-static mut STASIS_PRELUDE: Option<Module> = None;
+/// Prelude implementation.
+struct Prelude(Module);
 
-fn prelude() -> &'static mut Module {
-    unsafe { STASIS_PRELUDE.as_mut().unwrap() }
+/// Prelude instance.
+static PRELUDE: Global<Prelude> = Global::INIT;
+
+impl Default for Prelude {
+    fn default() -> Self {
+        let m = Module::new();
+
+        // Common global functions.
+        m.register("console.log", "console.log");
+        m.register("console.error", "console.error");
+        m.register("console.warn", "console.warn");
+        m.register("alert", r#"
+            function(s) {
+                window.alert(s);
+            }
+        "#);
+
+        Prelude(m)
+    }
 }
 
-/// JavaScript alert.
+/// Browser alert.
 ///
 /// Equivalent to `window.alert(...)`.
 pub fn alert<T>(t: T) where T: ToString {
     unsafe {
-        prelude().call("alert", t.to_string())
+        PRELUDE.lock().0.call("alert", t.to_string())
     }
 }
 
 pub mod console {
+    //! The browser `console` interface.
+
     use serde::Serialize;
 
-    use super::prelude;
+    use super::PRELUDE;
 
     /// Log a message to the console.
     ///
     /// This can be called with multiple arguments in a tuple or array.
     pub fn log<T>(t: T) where T: Serialize {
         unsafe {
-            prelude().call("console.log", t)
+            PRELUDE.lock().0.call("console.log", t)
         }
     }
 
@@ -290,7 +318,7 @@ pub mod console {
     /// This can be called with multiple arguments in a tuple or array.
     pub fn error<T>(t: T) where T: Serialize {
         unsafe {
-            prelude().call("console.error", t)
+            PRELUDE.lock().0.call("console.error", t)
         }
     }
 
@@ -300,7 +328,7 @@ pub mod console {
     /// This can be called with multiple arguments in a tuple or array.
     pub fn warn<T>(t: T) where T: Serialize {
         unsafe {
-            prelude().call("console.warn", t)
+            PRELUDE.lock().0.call("console.warn", t)
         }
     }
 }
@@ -337,21 +365,4 @@ fn setup_panic() {
 #[doc(hidden)]
 pub fn load() {
     setup_panic();
-
-    let m = Module::new();
-
-    // Common global functions.
-    m.register("console.log", "console.log");
-    m.register("console.error", "console.error");
-    m.register("console.warn", "console.warn");
-    m.register("alert", r#"
-        function(s) {
-            window.alert(s);
-        }
-    "#);
-
-    // Assign the global prelude.
-    unsafe {
-        STASIS_PRELUDE = Some(m);
-    }
 }

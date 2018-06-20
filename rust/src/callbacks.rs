@@ -1,86 +1,146 @@
+//! Easy handling of JavaScript callbacks.
+//!
+//! This module is designed to work well with [`global`].
+//!
+//! ```rust,no_run
+//! #[macro_use] extern crate stasis;
+//!
+//! use stasis::{console, Module, Global, Callbacks};
+//!
+//! static MODULE: Global<TestModule> = Global::INIT;
+//! static CALLBACKS: Global<Callbacks<()>> = Global::INIT;
+//!
+//! struct TestModule(Module);
+//!
+//! impl Default for TestModule {
+//!     fn default() -> Self {
+//!         let m = Module::new();
+//!
+//!         m.register_callback("done", |id: u32| {
+//!             Callbacks::call(&CALLBACKS, id, ());
+//!         });
+//!
+//!         m.register("rand", r#"
+//!             function(id, ms) {
+//!                 var done = this.callbacks.done;
+//!
+//!                 setTimeout(function() {
+//!                     done(id);
+//!                 }, ms);
+//!             }
+//!         "#);
+//!
+//!         TestModule(m)
+//!     }
+//! }
+//!
+//! stasis! {{
+//!     const TEST_ID: u32 = 0;
+//!     const DELAY: u32 = 1000;
+//!
+//!     CALLBACKS
+//!         .lock()
+//!         .register(TEST_ID, || {
+//!             console::log("Timeout finished.");
+//!         });
+//!
+//!     // This will print "Timeout finished" after 1000 milliseconds.
+//!     let () = unsafe {
+//!         MODULE
+//!             .lock()
+//!             .0
+//!             .call("rand", (TEST_ID, DELAY))
+//!     };
+//! }}
+//! ```
+
 use std::collections::HashMap;
 
-use serde_json;
-use serde::{Serialize, Deserialize};
+use global::Global;
 
-static mut HANDLER: Option<Callbacks> = None;
-
-#[derive(Default)]
-struct Callbacks {
-    current: u32,
-    registered: HashMap<u32, Box<Fn(String) -> String>>,
+/// A callback manager for asynchronous JavaScript functions.
+pub struct Callbacks<T> {
+    map: HashMap<u32, Callback<T>>,
 }
 
-impl Callbacks {
-    fn global() -> &'static mut Callbacks {
-        unsafe {
-            if let Some(h) = HANDLER.as_mut() {
-                return h;
-            }
-
-            // Unwrap is safe, we just populated the option.
-            HANDLER = Some(Callbacks::default());
-            HANDLER.as_mut().unwrap()
+impl<T> Default for Callbacks<T> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
         }
     }
+}
 
-    fn register<F>(&mut self, f: F) -> u32
+enum Callback<T> {
+    Waiting(Box<FnMut()>),
+    Ready(T),
+}
+
+impl<T: 'static> Callbacks<T> {
+    /// Register a callback to be called.
+    ///
+    /// This will overwrite any existing callback with the same ID.
+    pub fn register<F>(&mut self, id: u32, f: F)
     where
-        F: 'static + Fn(String) -> String,
+        F: FnOnce() + Send + 'static
     {
-        let id = self.current;
-        self.current += 1;
+        // We can't construct a Box<FnOnce> at the time of writing, so we create
+        // a wrapper closure.
+        let mut opt = Some(f);
 
-        self.registered.insert(id, Box::new(f));
+        self.map.insert(id, Callback::Waiting(Box::new(move || {
+            let f = opt
+                .take()
+                .unwrap();
 
-        id
+            f()
+        })));
     }
 
-    fn call(&self, id: u32, args: String) -> String {
-        let f = self.registered
-            .get(&id)
-            .expect(
-                "FATAL: Failed to find callback. Make sure to register all\
-                 callbacks."
-            );
+    /// Return a callback with a global handle.
+    ///
+    /// This will return true if there was a registered callback that was
+    /// waiting to be called.
+    pub fn call(global_self: &'static Global<Self>, id: u32, t: T) -> bool {
+        let mut lock = global_self.lock();
 
-        f(args)
+        // Insert the success value.
+        let callback = lock.map.insert(id, Callback::Ready(t));
+
+        // Important: this will prevent panics while locking twice.
+        drop(lock);
+
+        let (reinsert, success) = match callback {
+            Some(Callback::Waiting(mut f)) => {
+                f();
+                (None, true)
+            }
+
+            other => (other, false),
+        };
+
+        if let Some(t) = reinsert {
+            global_self
+                .lock()
+                .map
+                .insert(id, t);
+        }
+
+        success
     }
-}
 
-pub fn register<F, A, R>(f: F) -> u32
-where
-    F: 'static + Fn(A) -> R,
-    A: for<'a> Deserialize<'a>,
-    R: Serialize,
-{
-    Callbacks::global()
-        .register(move |input| {
-            // This is guaranteed to never fail by the user.
-            let input = match serde_json::from_str(&input) {
-                Ok(o) => o,
-                Err(e) => {
-                    panic!(
-                        "Stasis: Failed to deserialize argument to callback.\
-                         Error: {}",
-                        e,
-                    )
-                }
-            };
-
-            let output = f(input);
-
-            // This should also never fail.
-            serde_json::to_string(&output).unwrap()
-        })
-}
-
-pub fn call(id: u32, args: String) -> Option<String> {
-    let callbacks = Callbacks::global();
-
-    // Optimize for the null pointer.
-    match callbacks.call(id, args) {
-        ref s if s == "null" => None,
-        s => Some(s),
+    /// Get the return value of a callback.
+    ///
+    /// This will retrieve the return value of a callback if it is available.
+    pub fn get(&mut self, id: u32) -> Option<T> {
+        match self.map.remove(&id) {
+            Some(Callback::Ready(r)) => Some(r),
+            Some(Callback::Waiting(f)) => {
+                // Re-insert.
+                self.map.insert(id, Callback::Waiting(f));
+                None
+            }
+            None => None,
+        }
     }
 }

@@ -7,7 +7,7 @@ use std::mem;
 use serde_json;
 
 use super::Pair;
-use callbacks;
+use rt_callbacks;
 
 extern {
     pub fn __stasis_module_create() -> u32;
@@ -47,7 +47,7 @@ pub unsafe fn callback(ptr: *mut u8, len: usize) -> *mut u8 {
 
     let params = String::from_raw_parts(ptr, len, len);
 
-    let ret = callbacks::call(id, params);
+    let ret = rt_callbacks::call(id, params);
 
     match ret {
         // Use `Pair` as an intermediate format.

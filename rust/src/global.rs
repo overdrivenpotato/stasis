@@ -9,9 +9,11 @@ use std::{
     mem::ManuallyDrop,
 };
 
-/// A global value.
+/// A global value wrapped in a [`Mutex`].
 ///
-/// Handles to this value can be obtained with the [`lock`] method.
+/// Handles to this value can be obtained with the [`Global::lock`] method.
+///
+/// [`Mutex`]: std::sync::Mutex
 pub struct Global<T> {
     once: Once,
     inner: UnsafeCell<Option<Arc<Mutex<T>>>>,
