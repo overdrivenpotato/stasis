@@ -61,12 +61,10 @@
 //!         });
 //!
 //!     // This will print "Timeout finished" after 1000 milliseconds.
-//!     let () = unsafe {
-//!         MODULE
-//!             .lock()
-//!             .0
-//!             .call("setTimeout", (id, DELAY))
-//!     };
+//!     let () = MODULE
+//!         .lock()
+//!         .0
+//!         .call("setTimeout", (id, DELAY));
 //! }}
 //! ```
 

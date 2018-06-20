@@ -38,7 +38,6 @@
 //! ## Calling JavaScript code.
 //!
 //! Now let's call this function. The return type must explicitly be annotated.
-//! Note that this is effectively FFI and is marked as `unsafe`.
 //!
 //! ```rust,no_run
 //! # #[macro_use] extern crate stasis;
@@ -53,9 +52,7 @@
 //! #             return Math.random();
 //! #         }
 //! #     "#);
-//!     let n: f32 = unsafe {
-//!         module.call("random", ())
-//!     };
+//!     let n: f32 = module.call("random", ());
 //!
 //!     console::log(n);
 //! }}
@@ -80,9 +77,7 @@
 //!         }
 //!     "#);
 //!
-//!     let n: f32 = unsafe {
-//!         module.call("random", ())
-//!     };
+//!     let n: f32 = module.call("random", ());
 //!
 //!     console::log(n);
 //! }}

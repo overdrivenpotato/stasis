@@ -186,6 +186,7 @@ impl Module {
 
         let Pair { ptr, len } = Pair::serialize(&reg).unwrap();
 
+        // Unsafe due to FFI call.
         unsafe {
             ::__rt::__stasis_register(ptr, len);
         }
@@ -214,12 +215,13 @@ impl Module {
 
         let Pair { ptr, len } = Pair::serialize(&reg).unwrap();
 
+        // Unsafe due to FFI call.
         unsafe {
             ::__rt::__stasis_register_callback(ptr, len);
         }
     }
 
-    pub unsafe fn call<T, R>(&self, name: &str, args: T) -> R
+    pub fn call<T, R>(&self, name: &str, args: T) -> R
     where
         T: Serialize,
         R: for<'a> Deserialize<'a>
@@ -242,12 +244,17 @@ impl Module {
             Err(e) => panic!("Failed to serialize arguments: {}", e),
         };
 
-        let ret = ::__rt::__stasis_call(ptr, len);
+        // This unsafety is due to an FFI call.
+        let ret = unsafe { ::__rt::__stasis_call(ptr, len) };
 
         let value = if ret.is_null() {
             "null".to_owned()
         } else {
-            Pair::from_u8_mut_ptr(ret).into_string()
+            // `ret` is given to us by the FFI function so we must assume it is
+            // safe.
+            unsafe {
+                Pair::from_u8_mut_ptr(ret).into_string()
+            }
         };
 
         match serde_json::from_str(&value) {
@@ -293,9 +300,7 @@ impl Default for Prelude {
 ///
 /// Equivalent to `window.alert(...)`.
 pub fn alert<T>(t: T) where T: ToString {
-    unsafe {
-        PRELUDE.lock().0.call("alert", t.to_string())
-    }
+    PRELUDE.lock().0.call("alert", t.to_string())
 }
 
 pub mod console {
@@ -309,18 +314,14 @@ pub mod console {
     ///
     /// This can be called with multiple arguments in a tuple or array.
     pub fn log<T>(t: T) where T: Serialize {
-        unsafe {
-            PRELUDE.lock().0.call("console.log", t)
-        }
+        PRELUDE.lock().0.call("console.log", t)
     }
 
     /// Log an error to the console.
     ///
     /// This can be called with multiple arguments in a tuple or array.
     pub fn error<T>(t: T) where T: Serialize {
-        unsafe {
-            PRELUDE.lock().0.call("console.error", t)
-        }
+        PRELUDE.lock().0.call("console.error", t)
     }
 
 
@@ -328,9 +329,7 @@ pub mod console {
     ///
     /// This can be called with multiple arguments in a tuple or array.
     pub fn warn<T>(t: T) where T: Serialize {
-        unsafe {
-            PRELUDE.lock().0.call("console.warn", t)
-        }
+        PRELUDE.lock().0.call("console.warn", t)
     }
 }
 

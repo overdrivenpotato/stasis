@@ -19,9 +19,7 @@
 //!         }
 //!     "#);
 //!
-//!     let n: f32 = unsafe {
-//!         module.call("random", ())
-//!     };
+//!     let n: f32 = module.call("random", ());
 //!
 //!     console::log(n);
 //! }}
@@ -99,14 +97,12 @@
 //! // ...
 //!
 //! pub fn random() -> f32 {
-//!     unsafe {
-//!         MODULE
-//!             .lock()
-//!             // We get the actual module here, remember this is a wrapper
-//!             // type.
-//!             .0
-//!             .call("random", ())
-//!     }
+//!     MODULE
+//!         .lock()
+//!         // We get the actual module here, remember this is a wrapper
+//!         // type.
+//!         .0
+//!         .call("random", ())
 //! }
 //!
 //! // ...
@@ -150,14 +146,12 @@
 //! }
 //!
 //! pub fn random() -> f32 {
-//!     unsafe {
-//!         MODULE
-//!             .lock()
-//!             // We get the actual module here, remember this is a wrapper
-//!             // type.
-//!             .0
-//!             .call("random", ())
-//!     }
+//!     MODULE
+//!         .lock()
+//!         // We get the actual module here, remember this is a wrapper
+//!         // type.
+//!         .0
+//!         .call("random", ())
 //! }
 //!
 //! stasis! {{
