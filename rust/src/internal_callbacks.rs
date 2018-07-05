@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use serde_json;
 use serde::{Serialize, Deserialize};
 
-static mut HANDLER: Option<Callbacks> = None;
+use global::Global;
 
+static HANDLER: Global<Callbacks> = Global::INIT;
+
+/// A global callback list.
 #[derive(Default)]
 struct Callbacks {
     current: u32,
@@ -12,18 +15,6 @@ struct Callbacks {
 }
 
 impl Callbacks {
-    fn global() -> &'static mut Callbacks {
-        unsafe {
-            if let Some(h) = HANDLER.as_mut() {
-                return h;
-            }
-
-            // Unwrap is safe, we just populated the option.
-            HANDLER = Some(Callbacks::default());
-            HANDLER.as_mut().unwrap()
-        }
-    }
-
     fn register<F>(&mut self, f: F) -> u32
     where
         F: 'static + Fn(String) -> String,
@@ -54,14 +45,15 @@ where
     A: for<'a> Deserialize<'a>,
     R: Serialize,
 {
-    Callbacks::global()
-        .register(move |input| {
+    HANDLER.with(|c| {
+        c.register(move |input| {
+            // panic!("Deserializing {}: ", &input);
             // This is guaranteed to never fail by the user.
             let input = match serde_json::from_str(&input) {
                 Ok(o) => o,
                 Err(e) => {
                     panic!(
-                        "Stasis: Failed to deserialize argument to callback.\
+                        "Stasis: Failed to deserialize argument to callback.\n\
                          Error: {}",
                         e,
                     )
@@ -73,10 +65,11 @@ where
             // This should also never fail.
             serde_json::to_string(&output).unwrap()
         })
+    })
 }
 
 pub fn call(id: u32, args: String) -> Option<String> {
-    let callbacks = Callbacks::global();
+    let callbacks = HANDLER.lock();
 
     // Optimize for the null pointer.
     match callbacks.call(id, args) {

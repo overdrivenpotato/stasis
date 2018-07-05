@@ -2,21 +2,24 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
-use std::mem;
-
 use serde::{Serialize, Deserialize};
 
-#[path = "rt.rs"]
+#[path = "incoming.rs"]
 #[doc(hidden)]
-/// The runtime module.
-pub mod __rt;
+/// A module that must be public to be accessed via the `stasis!` macro. There
+/// is a `#[doc(hidden)]` attribute on here as this should never be used by a
+/// user of the library directly.
+pub mod __incoming;
 
 /// Internal callback handling.
 ///
 /// This is not the same as the `callbacks` module, that is for users of this
 /// library to create their own callbacks. This module handles the raw callback
 /// interface.
-mod rt_callbacks;
+mod internal_callbacks;
+mod outgoing;
+
+mod data;
 
 pub mod global;
 pub mod callbacks;
@@ -38,30 +41,9 @@ macro_rules! stasis {
 
         #[no_mangle]
         #[doc(hidden)]
-        pub extern "C" fn __stasis_entrypoint() {
-            // Mount the crate functions first.
-            $crate::load();
-
-            fn entrypoint() $body
-            entrypoint();
-        }
-
-        #[no_mangle]
-        #[doc(hidden)]
-        pub extern "C" fn __stasis_alloc(n: usize) -> *mut u8 {
-            $crate::__rt::alloc(n)
-        }
-
-        #[no_mangle]
-        #[doc(hidden)]
-        pub unsafe extern "C" fn __stasis_dealloc(ptr: u32, len: u32) {
-            $crate::__rt::dealloc(ptr, len)
-        }
-
-        #[no_mangle]
-        #[doc(hidden)]
-        pub unsafe extern "C" fn __stasis_callback(ptr: *mut u8, len: usize) -> *mut u8 {
-            $crate::__rt::callback(ptr, len)
+        pub extern "C" fn __stasis_callback(op: u32, a: u32, b: u32) -> *mut u8 {
+            fn entry() $body
+            $crate::__incoming::incoming(entry, op, a, b)
         }
     }
 }
@@ -72,122 +54,15 @@ pub struct Module {
     id: u32,
 }
 
-/// A WebAssembly-friendly fat pointer.
-#[derive(Debug)]
-struct Pair {
-    pub ptr: *mut u8,
-    pub len: usize,
-}
-
-impl Pair {
-    fn serialize<T>(t: T) -> Result<Self, serde_json::Error>
-    where
-        T: Serialize,
-    {
-        serde_json::to_string(&t)
-            .map(|s| s.into())
-    }
-
-    unsafe fn from_u8_mut_ptr(src: *mut u8) -> Self {
-        let mut len: u32 = 0;
-        let mut ptr: u32 = 0;
-
-        ptr += *src as u32;
-        ptr += (*src.offset(1) as u32) << 8;
-        ptr += (*src.offset(2) as u32) << 16;
-        ptr += (*src.offset(3) as u32) << 24;
-
-        len += *src.offset(4) as u32;
-        len += (*src.offset(5) as u32) << 8;
-        len += (*src.offset(6) as u32) << 16;
-        len += (*src.offset(7) as u32) << 24;
-
-        // Deallocate the fat pointer.
-        drop(Vec::from_raw_parts(src, 8, 8));
-
-        Self {
-            ptr: ptr as *mut u8,
-            len: len as usize,
-        }
-    }
-
-    unsafe fn into_string(self) -> String {
-        String::from_raw_parts(self.ptr, self.len, self.len)
-    }
-}
-
-impl From<String> for Pair {
-    fn from(s: String) -> Self {
-        let mut bytes: Vec<u8> = s.into();
-        bytes.shrink_to_fit();
-
-        let ptr = bytes.as_mut_ptr();
-        let len = bytes.len();
-
-        mem::forget(bytes);
-
-        Self { ptr, len }
-    }
-}
-
-impl Into<*mut u8> for Pair {
-    fn into(self) -> *mut u8 {
-        let Self { ptr, len } = self;
-
-        let mut bytes: Vec<u8> = Vec::with_capacity(8);
-
-        for _ in 0..8 {
-            bytes.push(0);
-        }
-
-        let ptr = ptr as u32;
-        let len = len as u32;
-
-        bytes[0] = (ptr & 0xFF) as u8;
-        bytes[1] = ((ptr & 0xFF00) >> 8) as u8;
-        bytes[2] = ((ptr & 0xFF0000) >> 16) as u8;
-        bytes[3] = ((ptr & 0xFF000000) >> 24) as u8;
-
-        bytes[4] = (len & 0xFF) as u8;
-        bytes[5] = ((len & 0xFF00) >> 8) as u8;
-        bytes[6] = ((len & 0xFF0000) >> 16) as u8;
-        bytes[7] = ((len & 0xFF000000) >> 24) as u8;
-
-        let ret = bytes.as_mut_ptr();
-
-        mem::forget(bytes);
-
-        ret
-    }
-}
-
 impl Module {
     pub fn new() -> Self {
         Self {
-            id: unsafe { ::__rt::__stasis_module_create() }
+            id: outgoing::create_module(),
         }
     }
 
     pub fn register(&self, name: &str, code: &str) {
-        #[derive(Serialize)]
-        struct Register<'a, 'b> {
-            id: u32,
-            name: &'a str,
-            code: &'b str,
-        }
-
-        let reg = Register {
-            id: self.id,
-            name,
-            code,
-        };
-
-        let Pair { ptr, len } = Pair::serialize(&reg).unwrap();
-
-        // Unsafe due to FFI call.
-        unsafe {
-            ::__rt::__stasis_register(ptr, len);
-        }
+        outgoing::register_fn(self.id, name, code);
     }
 
     pub fn register_callback<F, A, R>(&self, name: &str, f: F)
@@ -196,27 +71,7 @@ impl Module {
         A: for<'a> Deserialize<'a>,
         R: Serialize,
     {
-        #[derive(Serialize)]
-        struct RegisterCallback<'a> {
-            module: u32,
-            callback: u32,
-            name: &'a str,
-        }
-
-        let id = rt_callbacks::register(f);
-
-        let reg = RegisterCallback {
-            module: self.id,
-            callback: id,
-            name,
-        };
-
-        let Pair { ptr, len } = Pair::serialize(&reg).unwrap();
-
-        // Unsafe due to FFI call.
-        unsafe {
-            ::__rt::__stasis_register_callback(ptr, len);
-        }
+        outgoing::register_callback(self.id, name, f);
     }
 
     pub fn call<T, R>(&self, name: &str, args: T) -> R
@@ -224,49 +79,7 @@ impl Module {
         T: Serialize,
         R: for<'a> Deserialize<'a>
     {
-        #[derive(Serialize)]
-        struct Call<'a, T> {
-            id: u32,
-            name: &'a str,
-            args: T,
-        }
-
-        let call = Call {
-            id: self.id,
-            name,
-            args,
-        };
-
-        let Pair { ptr, len } = match Pair::serialize(call) {
-            Ok(pair) => pair,
-            Err(e) => panic!("Failed to serialize arguments: {}", e),
-        };
-
-        // This unsafety is due to an FFI call.
-        let ret = unsafe { ::__rt::__stasis_call(ptr, len) };
-
-        let value = if ret.is_null() {
-            "null".to_owned()
-        } else {
-            // `ret` is given to us by the FFI function so we must assume it is
-            // safe.
-            unsafe {
-                Pair::from_u8_mut_ptr(ret).into_string()
-            }
-        };
-
-        match serde_json::from_str(&value) {
-            Ok(v) => v,
-            Err(e) => {
-                panic!(
-                    "STASIS: Failed to deserialize return value.\n\
-                     Given '{}'\n\
-                     Error {:?}",
-                    value,
-                    e
-                )
-            }
-        }
+        outgoing::call(self.id, name, args)
     }
 }
 

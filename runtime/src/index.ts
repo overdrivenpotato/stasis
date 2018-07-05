@@ -1,6 +1,5 @@
 import Wrapper from './wrapper'
 import Binary from './binary'
-import { Pointer } from './types'
 
 interface Handle {
   wrapper: Wrapper
@@ -29,7 +28,7 @@ const getBytes = (url: string): Promise<Uint8Array> => (
 
 // Load a new JS script.
 const loadScript = (src: string): Promise<void> => (
-  new Promise((resolve, _reject) => {
+  new Promise(resolve => {
     const el = document.createElement('script')
 
     el.onload = () => {
@@ -58,68 +57,87 @@ const getWebAssembly = async (): Promise<any> => {
   }
 }
 
+const stasisCall = (getHandle: () => Handle | null) =>
+  (op: number, a: number, b: number): number => {
+    const handle = getHandle()
+
+    if (!handle) {
+      return -1
+    }
+
+    const opcodes = {
+      CREATE_MODULE: 0,
+      REGISTER_FN: 1,
+      REGISTER_CB: 2,
+      CALL_FN: 3,
+    }
+
+    switch (op) {
+      case opcodes.CREATE_MODULE: {
+        return handle.wrapper.createModule()
+      }
+
+      case opcodes.REGISTER_FN: {
+        interface Register {
+          id: number
+          name: string
+          code: string
+        }
+
+        const json: Register = handle.binary.getJson(a, b)
+
+        handle
+          .wrapper
+          .getModule(json.id)
+          .register(json.name, json.code)
+
+        return 0
+      }
+
+      case opcodes.REGISTER_CB: {
+        interface RegisterCallback {
+          module: number
+          callback: number
+          name: string
+        }
+
+        const json: RegisterCallback = handle.binary.getJson(a, b)
+
+        handle
+          .wrapper
+          .getModule(json.module)
+          .registerCallback(json.name, json.callback)
+
+        return 0
+      }
+
+      case opcodes.CALL_FN: {
+        interface Call {
+          id: number
+          name: string
+          args: any
+        }
+
+        const call: Call = handle.binary.getJson(a, b)
+
+        const ret = handle.wrapper
+          .getModule(call.id)
+          .call(call.name, call.args)
+
+        return handle.binary.makePair(ret)
+      }
+
+      default: return -2
+    }
+  }
+
 export default async (url: string): Promise<void> => {
   const bytes = await getBytes(url)
 
-  let getHandle: () => Handle | null = () => null
+  let handle: null | Handle = null
 
   const env = {
-    __stasis_module_create(): number {
-      const handle = getHandle()
-      if (!handle) return -1
-
-      return handle.wrapper.createModule()
-    },
-    __stasis_register(ptr: Pointer, len: number) {
-      const handle = getHandle()
-      if (!handle) return
-
-      interface Register {
-        id: number
-        name: string
-        code: string
-      }
-
-      const json: Register = handle.binary.getJson(ptr, len)
-
-      handle.wrapper
-        .getModule(json.id)
-        .register(json.name, json.code)
-    },
-    __stasis_register_callback(ptr: Pointer, len: number) {
-      const handle = getHandle()
-      if (!handle) return
-
-      interface RegisterCallback {
-        module: number
-        callback: number
-        name: string
-      }
-
-      const json: RegisterCallback = handle.binary.getJson(ptr, len)
-
-      handle.wrapper
-        .getModule(json.module)
-        .registerCallback(json.name, json.callback)
-    },
-    __stasis_call(ptr: Pointer, len: number): Pointer {
-      const handle = getHandle()
-      if (!handle) return 0
-
-      interface Call {
-        id: number
-        name: string
-        args: any
-      }
-
-      const call: Call = handle.binary.getJson(ptr, len)
-
-      const ret = handle.wrapper
-        .getModule(call.id)
-        .call(call.name, call.args)
-
-      return handle.binary.makePair(ret)
-    },
+    __stasis_call: stasisCall(() => handle),
   }
 
   const WebAssembly = await getWebAssembly()
@@ -127,6 +145,6 @@ export default async (url: string): Promise<void> => {
 
   const binary = new Binary(wasm.instance.exports)
   const wrapper = new Wrapper(binary)
-  getHandle = () => ({ wrapper, binary })
+  handle = ({ wrapper, binary })
   binary.main()
 }
