@@ -1,4 +1,4 @@
-# Stasis
+![Stasis](art.jpg)
 
 A complete runtime for rust applications in the browser.
 
@@ -10,6 +10,12 @@ A complete runtime for rust applications in the browser.
 * No build step at all
 * Stable Rust
 * Full web applications in pure rust
+
+Features:
+
+* Easy JavaScript bindings
+* Asyncronous callback support
+* Stasis binary loader on a CDN (example at bottom of README)
 
 ```rust
 #[macro_use] extern crate stasis;
@@ -198,7 +204,7 @@ would remain identical.
     <head>
         <script
             id="stasis"
-            src="http://bundle.run/stasis@0.1.0-alpha.5/dist/stasis.min.js"
+            src="https://unpkg.com/stasis/dist/stasis.min.js"
             type="text/javascript"
             data-binary="target/wasm32-unknown-unknown/release/stasis-test.wasm"
         ></script>

@@ -1,0 +1,18 @@
+[package]
+name = "stasis"
+version = "0.1.0-alpha.1"
+authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
+description = "A minimal runtime for WebAssembly projects"
+license = "MIT"
+
+[dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+global = "0.2.1"
+once-nonstatic = "0.1"
+futures-v01x = "0.1"
+futures-v02x = "0.1"
+
+[dependencies.stasis-internals]
+path = "../stasis-internals"
+version = "0.1"

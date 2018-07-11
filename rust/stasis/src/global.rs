@@ -24,7 +24,11 @@ pub struct Global<T> {
 // will attempt to get *immutable* access and block until only one thread as
 // succeeded. That makes this `impl` safe only if `.ensure_exists()` is called
 // whenever accessing the inner `UnsafeCell` value.
-unsafe impl<T> Sync for Global<T> {}
+//
+// This bound is on `T: Send` as `Mutex<T>` requires it to implement `T: Sync`.
+// Because the mutex is in a static position it must be sync, so we need to
+// ensure this bound is satisfied.
+unsafe impl<T> Sync for Global<T> where T: Send {}
 
 impl<T: Default> Global<T> {
     /// Ensure the inner value exists.
@@ -46,7 +50,7 @@ impl<T: Default> Global<T> {
     }
 }
 
-impl<T: Default> Global<T> {
+impl<T: Default + Send + 'static> Global<T> {
     /// The initial global value.
     pub const INIT: Global<T> = Global {
         once: ONCE_INIT,
@@ -72,14 +76,13 @@ impl<T: Default> Global<T> {
     ///
     /// This method will block the current thread until the lock is available.
     /// If this is called recursively in WebAssembly, it will panic.
-    pub fn lock(&'static self) -> GlobalLock<T> where T: 'static {
+    pub fn lock(&'static self) -> GlobalLock<T> {
         // Important: this *must* be called before accessing the inner pointer.
         self.ensure_exists();
 
-        let ptr = self.inner.get();
+        let ptr = self.inner.get() as *const Option<_>;
 
-        // This is safe as the clone is an immutable operation. The pointer data
-        // cannot possibly mutate while another thread is accessing it.
+        // This is safe as we already called `ensure_exists`.
         let opt = unsafe { (*ptr).clone() };
 
         GlobalLock::new(opt.unwrap())

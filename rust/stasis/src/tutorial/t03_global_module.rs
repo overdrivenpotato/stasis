@@ -66,7 +66,7 @@
 //! // ...
 //!
 //! // We import `Global` here
-//! use stasis::{console, Module, Global};
+//! use stasis::{console, Module, global::Global};
 //!
 //! static MODULE: Global<Random> = Global::INIT;
 //!
@@ -92,7 +92,7 @@
 //!
 //! ```rust,no_run
 //! # #[macro_use] extern crate stasis;
-//! # use stasis::{console, Module, Global};
+//! # use stasis::{console, Module, global::Global};
 //! # static MODULE: Global<Random> = Global::INIT;
 //! // ...
 //!
@@ -125,7 +125,7 @@
 //!
 //! ```rust,no_run
 //! #[macro_use] extern crate stasis;
-//! use stasis::{console, Module, Global};
+//! use stasis::{console, Module, global::Global};
 //!
 //! static MODULE: Global<Random> = Global::INIT;
 //!

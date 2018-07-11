@@ -1,11 +1,10 @@
 [package]
-name = "stasis"
-version = "0.1.0-alpha.1"
+name = "stasis-internals"
+version = "0.1.0"
 authors = ["Marko Mijalkovic <marko.mijalkovic97@gmail.com>"]
-description = "A minimal runtime for WebAssembly projects"
-license = "MIT"
 
 [dependencies]
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
+lazy_static = "1.0"

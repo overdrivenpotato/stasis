@@ -50,7 +50,7 @@ pub fn register_fn(module_id: u32, name: &str, code: &str) {
 
 pub fn register_callback<F, A, R>(module_id: u32, name: &str, f: F)
 where
-    F: 'static + Fn(A) -> R,
+    F: 'static + Send + Fn(A) -> R,
     A: for<'a> Deserialize<'a>,
     R: Serialize,
 {

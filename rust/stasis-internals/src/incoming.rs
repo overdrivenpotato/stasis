@@ -12,7 +12,6 @@ pub fn incoming(entry: fn(), op: u32, a: u32, b: u32) -> *mut u8 {
     match op {
         // Entrypoint.
         0 => {
-            ::load();
             entry();
 
             ptr::null_mut()

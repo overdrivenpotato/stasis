@@ -40,10 +40,12 @@ const loadScript = (src: string): Promise<void> => (
   })
 )
 
+const FORCE_INTERPRETER = true
+
 const getWebAssembly = async (): Promise<any> => {
   const native = (window as any).WebAssembly
 
-  if (native) {
+  if (native && !FORCE_INTERPRETER) {
     return Promise.resolve(native)
   } else {
     console.warn(

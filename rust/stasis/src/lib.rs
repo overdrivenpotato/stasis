@@ -1,32 +1,24 @@
+/// This crate is recommended as the way to implement module memoization.
+pub extern crate global;
+
+extern crate futures_v01x;
+extern crate futures_v02x;
+extern crate once_nonstatic;
 extern crate serde;
-extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
+/// This must be public to be accessed via the `stasis!` macro. There is a
+/// `#[doc(hidden)]` attribute on here as this should never be used by a user of
+/// the library directly.
+#[doc(hidden)]
+pub extern crate stasis_internals;
+
+use global::Global;
 use serde::{Serialize, Deserialize};
 
-#[path = "incoming.rs"]
-#[doc(hidden)]
-/// A module that must be public to be accessed via the `stasis!` macro. There
-/// is a `#[doc(hidden)]` attribute on here as this should never be used by a
-/// user of the library directly.
-pub mod __incoming;
-
-/// Internal callback handling.
-///
-/// This is not the same as the `callbacks` module, that is for users of this
-/// library to create their own callbacks. This module handles the raw callback
-/// interface.
-mod internal_callbacks;
-mod outgoing;
-
-mod data;
-
-pub mod global;
 pub mod callbacks;
 pub mod tutorial;
-
-pub use global::{Global, GlobalLock};
-pub use callbacks::Callbacks;
+pub mod futures;
 
 #[macro_export]
 /// Declare the main function.
@@ -42,8 +34,17 @@ macro_rules! stasis {
         #[no_mangle]
         #[doc(hidden)]
         pub extern "C" fn __stasis_callback(op: u32, a: u32, b: u32) -> *mut u8 {
+            /// User-defined entrypoint.
             fn entry() $body
-            $crate::__incoming::incoming(entry, op, a, b)
+
+            /// Wrapper around user entrypoint that will load the stasis
+            /// entrypoint first.
+            fn wrapper() {
+                $crate::load();
+                entry();
+            }
+
+            $crate::stasis_internals::incoming::incoming(wrapper, op, a, b)
         }
     }
 }
@@ -57,21 +58,21 @@ pub struct Module {
 impl Module {
     pub fn new() -> Self {
         Self {
-            id: outgoing::create_module(),
+            id: stasis_internals::outgoing::create_module(),
         }
     }
 
     pub fn register(&self, name: &str, code: &str) {
-        outgoing::register_fn(self.id, name, code);
+        stasis_internals::outgoing::register_fn(self.id, name, code);
     }
 
     pub fn register_callback<F, A, R>(&self, name: &str, f: F)
     where
-        F: 'static + Fn(A) -> R,
+        F: 'static + Send + Fn(A) -> R,
         A: for<'a> Deserialize<'a>,
         R: Serialize,
     {
-        outgoing::register_callback(self.id, name, f);
+        stasis_internals::outgoing::register_callback(self.id, name, f);
     }
 
     pub fn call<T, R>(&self, name: &str, args: T) -> R
@@ -79,7 +80,7 @@ impl Module {
         T: Serialize,
         R: for<'a> Deserialize<'a>
     {
-        outgoing::call(self.id, name, args)
+        stasis_internals::outgoing::call(self.id, name, args)
     }
 }
 
