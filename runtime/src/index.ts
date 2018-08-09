@@ -140,6 +140,7 @@ export default async (url: string): Promise<void> => {
 
   const env = {
     __stasis_call: stasisCall(() => handle),
+    round: Math.round,
   }
 
   const WebAssembly = await getWebAssembly()
