@@ -42,9 +42,13 @@
 //! }}
 //! ```
 
-use std::collections::{HashMap, VecDeque};
-use std::cell::UnsafeCell;
+use std::{
+    mem,
+    collections::{HashMap, VecDeque},
+    cell::UnsafeCell,
+};
 
+use serde::Deserialize;
 use global::Global;
 use once_nonstatic::Once;
 
@@ -60,13 +64,21 @@ struct Inner<T> {
     map: HashMap<CallbackId, Callback<T>>,
 }
 
-#[derive(Default)]
 struct Callback<T> {
     notify: Option<Box<FnMut() + Send>>,
     stack: VecDeque<T>,
 }
 
-impl<T: Default> Inner<T> {
+impl<T> Default for Callback<T> {
+    fn default() -> Self {
+        Self {
+            notify: None,
+            stack: VecDeque::new(),
+        }
+    }
+}
+
+impl<T> Inner<T> {
     fn pop(&mut self, id: CallbackId) -> Option<T> {
         self.map
             .get_mut(&id)?
@@ -141,12 +153,23 @@ pub struct Callbacks<T> {
     inner: UnsafeCell<Option<Global<Inner<T>>>>,
 }
 
+impl<T> Drop for Callbacks<T> {
+    fn drop(&mut self) {
+        use std::mem;
+
+        // Currently, destructors are not supported.
+        // TODO: Destructor support.
+        let cell = mem::replace(&mut self.inner, UnsafeCell::new(None));
+        mem::forget(cell);
+    }
+}
+
 // The bound here is taken directly from the `unsafe impl` of `Sync` on
 // `Global<T>`. With this in mind, the impl is safe as `Once` guards access to
 // the inner cell.
 unsafe impl<T: Send> Sync for Callbacks<T> {}
 
-impl<T: Default + 'static + Send> Callbacks<T> {
+impl<T: 'static + Send> Callbacks<T> {
     pub const INIT: Callbacks<T> = Callbacks {
         once: Once::INIT,
         inner: UnsafeCell::new(None),
@@ -208,6 +231,54 @@ impl<T: Default + 'static + Send> Callbacks<T> {
 
         if let Some(mut f) = notify {
             f();
+        }
+    }
+
+    // TODO: Allow unregistering these callbacks.
+    /// Register a callback handler.
+    ///
+    /// Any incoming `push` will immediately trigger the given handler.
+    pub fn on<F>(&self, id: CallbackId, f: F)
+    where
+        F: FnMut(T) + Send + 'static,
+        T: for<'a> Deserialize<'a>,
+    {
+        // There is a lot of pointer magic going on here. Unfortunately, due to
+        // the ICE encountered with nested `const` values, we must manage an
+        // `UnsafeCell` ourselves. This results in a lot of unsafe pointer
+        // manipulation. Ideally, we could have a `Global<T>` which we could
+        // just call `clone()` on.
+
+        // Used to transmute between pointers and thread-safe values.
+        type Ptr<T> = *const Option<Global<Inner<T>>>;
+
+        // This listener is self-referential as it must re-register itself when
+        // done.
+        unsafe fn listener<T, F>(id: CallbackId, mut f: F, addr: usize)
+        where
+            T: Send + 'static,
+            F: Send + 'static + FnMut(T),
+        {
+            let ptr: Ptr<T> = mem::transmute(addr);
+            let opt = (*ptr).as_ref().unwrap();
+
+            let mut guard = opt.lock();
+            let t = guard.pop(id).unwrap();
+
+            // The callback is run before the listener is re-registered.
+            drop(guard);
+            f(t);
+
+            let mut guard = opt.lock();
+            guard.listen(id, move || listener::<T, _>(id, f, addr));
+        }
+
+        unsafe {
+            self.ensure_exists();
+            let ptr = self.inner.get();
+            let addr = mem::transmute(ptr);
+
+            self.listen(id, move || listener::<T, _>(id, f, addr));
         }
     }
 

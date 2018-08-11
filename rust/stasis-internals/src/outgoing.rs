@@ -48,9 +48,13 @@ pub fn register_fn(module_id: u32, name: &str, code: &str) {
     }
 }
 
+/// Register a callback.
+///
+/// The function must be `Sync` as it can be recursively called. This prevents
+/// a deadlock from occurring.
 pub fn register_callback<F, A, R>(module_id: u32, name: &str, f: F)
 where
-    F: 'static + Send + Fn(A) -> R,
+    F: 'static + Send + Sync + Fn(A) -> R,
     A: for<'a> Deserialize<'a>,
     R: Serialize,
 {

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde_json;
 use serde::{Serialize, Deserialize};
@@ -8,41 +8,36 @@ lazy_static! {
     static ref HANDLER: Mutex<Callbacks> = Default::default();
 }
 
+/// A registered callback.
+type Callback = Arc<Box<Fn(String) -> String + Send + Sync>>;
+
 /// A global callback list.
 #[derive(Default)]
 struct Callbacks {
     current: u32,
-    registered: HashMap<u32, Box<Fn(String) -> String + Send>>,
+    registered: HashMap<u32, Callback>,
 }
 
 impl Callbacks {
     fn register<F>(&mut self, f: F) -> u32
     where
-        F: 'static + Send + Fn(String) -> String,
+        F: 'static + Send + Sync + Fn(String) -> String,
     {
         let id = self.current;
         self.current += 1;
 
-        self.registered.insert(id, Box::new(f));
+        self.registered.insert(id, Arc::new(Box::new(f)));
 
         id
     }
-
-    fn call(&self, id: u32, args: String) -> String {
-        let f = self.registered
-            .get(&id)
-            .expect(
-                "FATAL: Failed to find callback. Make sure to register all\
-                 callbacks."
-            );
-
-        f(args)
-    }
 }
 
+/// Register a callback.
+///
+/// The function must be `Sync` as it can be recursively called.
 pub fn register<F, A, R>(f: F) -> u32
 where
-    F: 'static + Send + Fn(A) -> R,
+    F: 'static + Send + Sync + Fn(A) -> R,
     A: for<'a> Deserialize<'a>,
     R: Serialize,
 {
@@ -69,10 +64,21 @@ where
 }
 
 pub fn call(id: u32, args: String) -> Option<String> {
-    let callbacks = HANDLER.lock().unwrap();
+    let guard = HANDLER.lock().unwrap();
 
-    // Optimize for the null pointer.
-    match callbacks.call(id, args) {
+    let f = guard.registered
+        .get(&id)
+        .cloned()
+        .expect(
+            "FATAL: Failed to find callback. Make sure to register all\
+             callbacks."
+        );
+
+    // Important: A callback may be called recursively.
+    drop(guard);
+
+    match f(args) {
+        // Optimize for the null pointer.
         ref s if s == "null" => None,
         s => Some(s),
     }

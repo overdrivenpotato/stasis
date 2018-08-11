@@ -68,7 +68,7 @@ impl Module {
 
     pub fn register_callback<F, A, R>(&self, name: &str, f: F)
     where
-        F: 'static + Send + Fn(A) -> R,
+        F: 'static + Send + Sync + Fn(A) -> R,
         A: for<'a> Deserialize<'a>,
         R: Serialize,
     {
@@ -135,7 +135,6 @@ pub mod console {
     pub fn error<T>(t: T) where T: Serialize {
         PRELUDE.lock().0.call("console.error", t)
     }
-
 
     /// Log a warning to the console.
     ///
