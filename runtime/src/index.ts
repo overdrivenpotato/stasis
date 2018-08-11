@@ -1,5 +1,6 @@
 import Wrapper from './wrapper'
 import Binary from './binary'
+import patchExport from './patch-export'
 
 interface Handle {
   wrapper: Wrapper
@@ -40,7 +41,7 @@ const loadScript = (src: string): Promise<void> => (
   })
 )
 
-const FORCE_INTERPRETER = true
+const FORCE_INTERPRETER = false
 
 const getWebAssembly = async (): Promise<any> => {
   const native = (window as any).WebAssembly
@@ -134,7 +135,7 @@ const stasisCall = (getHandle: () => Handle | null) =>
   }
 
 export default async (url: string): Promise<void> => {
-  const bytes = await getBytes(url)
+  const [ bytes ] = patchExport(await getBytes(url))
 
   let handle: null | Handle = null
 
