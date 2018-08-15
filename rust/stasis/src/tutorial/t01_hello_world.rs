@@ -4,7 +4,7 @@
 //! do is create our project.
 //!
 //! ```sh
-//! $ cargo new hello_world
+//! $ cargo new --bin hello_world
 //! $ cd hello_world
 //! $ tree
 //! .
@@ -30,33 +30,21 @@
 //! Now we can begin! Open up main.rs and import the crate:
 //!
 //! ```rust,no_run
-//! #[macro_use] extern crate stasis;
+//! extern crate stasis;
 //!
-//! fn main() {}
-//! ```
-//!
-//! Unlike a normal rust application, `stasis` requires the use of the `stasis!`
-//! macro for application entrypoint. This is equivalent to `fn main() {}` like
-//! we are used to.
-//!
-//! ```rust,no_run
-//! #[macro_use] extern crate stasis;
-//!
-//! stasis! {{
+//! fn main() {
 //!     // Your code goes here...
-//! }}
+//! }
 //! ```
 //!
 //! Let's import the `console` module from stasis and print our message!
 //!
 //! ```rust,no_run
-//! #[macro_use] extern crate stasis;
+//! extern crate stasis;
 //!
-//! use stasis::console;
-//!
-//! stasis! {{
-//!     console::log("Hello World!");
-//! }}
+//! fn main() {
+//!     stasis::console::log("Hello World!");
+//! }
 //! ```
 //!
 //! Voila! You've written your first stasis application.

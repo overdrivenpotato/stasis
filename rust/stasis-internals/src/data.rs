@@ -6,6 +6,10 @@ use serde_json;
 use serde::{Serialize};
 
 /// Little Endian read of `u32`.
+///
+/// # Panics
+///
+/// This function will panic if the given slice is not exactly 4 bytes long.
 pub fn read_u32(ptr: &[u8]) -> u32 {
     assert_eq!(ptr.len(), 4);
 

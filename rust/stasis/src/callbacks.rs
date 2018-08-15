@@ -18,7 +18,7 @@
 //!
 //! static CALLBACKS: Callbacks<()> = Callbacks::INIT;
 //!
-//! stasis! {{
+//! fn main() {
 //!     const DELAY: u32 = 1000;
 //!
 //!     // JavaScript setup.
@@ -39,7 +39,7 @@
 //!
 //!     // This will print "Timeout finished" after 1000 milliseconds.
 //!     let () = m.call("setTimeout", (id, DELAY));
-//! }}
+//! }
 //! ```
 
 use std::{

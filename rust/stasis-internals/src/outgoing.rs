@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use serde_json;
 use serde::{Serialize, Deserialize};
 
@@ -10,21 +12,50 @@ extern {
     /// This takes an opcode and 2 arguments, returning a value. The opcodes
     /// correspond to various functions:
     ///
-    /// 0: Create module
-    /// 1: Register function
-    /// 2: Register callback
-    /// 3: Call function
+    /// 0: Register internal callback handler
+    /// 1: Create module
+    /// 2: Register function
+    /// 3: Register callback
+    /// 4: Call function
     fn __stasis_call(op: u32, a: u32, b: u32) -> u32;
 }
 
 mod opcode {
-    pub const CREATE_MODULE: u32 = 0;
-    pub const REGISTER_FN: u32 = 1;
-    pub const REGISTER_CB: u32 = 2;
-    pub const CALL_FN: u32 = 3;
+    pub const REGISTER_STASIS_CB: u32 = 0;
+    pub const CREATE_MODULE: u32 = 1;
+    pub const REGISTER_FN: u32 = 2;
+    pub const REGISTER_CB: u32 = 3;
+    pub const CALL_FN: u32 = 4;
+}
+
+lazy_static! {
+    static ref STASIS_CALLBACK_REGISTERED: Arc<Mutex<bool>> = {
+        Arc::new(Mutex::new(false))
+    };
+}
+
+type StasisCallback = extern fn(op: u32, a: u32, b: u32) -> *mut u8;
+
+pub fn register_stasis_callback(f: StasisCallback) {
+    unsafe {
+        __stasis_call(opcode::REGISTER_STASIS_CB, f as u32, 0);
+    }
 }
 
 pub fn create_module() -> u32 {
+    // In stasis, a module must always be created before anything else can be
+    // done. With this reasoning, we can place the callback registration code
+    // here.
+
+    let mut guard = STASIS_CALLBACK_REGISTERED.lock().unwrap();
+
+    if !*guard {
+        register_stasis_callback(::incoming::incoming);
+        *guard = true;
+    }
+
+    drop(guard);
+
     unsafe {
         __stasis_call(opcode::CREATE_MODULE, 0, 0)
     }

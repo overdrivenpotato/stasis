@@ -2,7 +2,9 @@ import { Pointer } from './types'
 
 export interface Exports {
   memory: { buffer: ArrayBuffer }
-  __stasis_callback(op: number, a: number, b: number): number
+  main: () => void
+  // WebAssembly Table
+  __indirect_function_table: any
 }
 
 const BYTES = {
@@ -10,14 +12,19 @@ const BYTES = {
 }
 
 const callback_opcodes = {
-  ENTRYPOINT: 0,
-  ALLOC: 1,
-  DEALLOC: 2,
-  CALLBACK: 3,
+  ALLOC: 0,
+  DEALLOC: 1,
+  CALLBACK: 2,
 }
 
 export default class Binary {
+  private callbackPointer: undefined | number
+
   constructor(private exports: Exports) {}
+
+  public setCallbackPointer(p: number) {
+    this.callbackPointer = p
+  }
 
   private mem(): Uint8Array {
     return new Uint8Array(this.exports.memory.buffer)
@@ -45,16 +52,26 @@ export default class Binary {
     return n
   }
 
+  private stasisCallback(opcode: number, a: number, b: number): number {
+    if (this.callbackPointer === undefined) {
+      throw 'Callback handler uninitialized.'
+    }
+
+    const handler = this.exports.__indirect_function_table.get(this.callbackPointer)
+
+    return handler(opcode, a, b)
+  }
+
   private dealloc(ptr: Pointer, len: number) {
-    this.exports.__stasis_callback(callback_opcodes.DEALLOC, ptr, len)
+    this.stasisCallback(callback_opcodes.DEALLOC, ptr, len)
   }
 
   private alloc(size: number): Pointer {
-    return this.exports.__stasis_callback(callback_opcodes.ALLOC, size, 0)
+    return this.stasisCallback(callback_opcodes.ALLOC, size, 0)
   }
 
   public main() {
-    this.exports.__stasis_callback(callback_opcodes.ENTRYPOINT, 0, 0)
+    this.exports.main()
   }
 
   public callback(id: Pointer, ...args: Array<any>): any {
@@ -75,7 +92,7 @@ export default class Binary {
     this.writeU32(landingPad + 1 * BYTES.U32, ptr)
     this.writeU32(landingPad + 2 * BYTES.U32, len)
 
-    const ret = this.exports.__stasis_callback(callback_opcodes.CALLBACK, landingPad, 0)
+    const ret = this.stasisCallback(callback_opcodes.CALLBACK, landingPad, 0)
 
     if (ret === 0) {
       return undefined

@@ -69,13 +69,19 @@ const stasisCall = (getHandle: () => Handle | null) =>
     }
 
     const opcodes = {
-      CREATE_MODULE: 0,
-      REGISTER_FN: 1,
-      REGISTER_CB: 2,
-      CALL_FN: 3,
+      REGISTER_STASIS_CB: 0,
+      CREATE_MODULE: 1,
+      REGISTER_FN: 2,
+      REGISTER_CB: 3,
+      CALL_FN: 4,
     }
 
     switch (op) {
+      case opcodes.REGISTER_STASIS_CB: {
+        handle.binary.setCallbackPointer(a)
+        return 0
+      }
+
       case opcodes.CREATE_MODULE: {
         return handle.wrapper.createModule()
       }
@@ -135,7 +141,7 @@ const stasisCall = (getHandle: () => Handle | null) =>
   }
 
 export default async (url: string): Promise<void> => {
-  const [ bytes ] = patchExport(await getBytes(url))
+  const bytes = patchExport(await getBytes(url))
 
   let handle: null | Handle = null
 

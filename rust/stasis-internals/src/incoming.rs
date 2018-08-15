@@ -7,23 +7,22 @@ use std::mem;
 use internal_callbacks;
 use data::{self, Pair};
 
-pub fn incoming(entry: fn(), op: u32, a: u32, b: u32) -> *mut u8 {
+mod opcode {
+    pub const ALLOC: u32 = 0;
+    pub const DEALLOC: u32 = 1;
+    pub const CALLBACK: u32 = 2;
+}
+
+pub extern fn incoming(op: u32, a: u32, b: u32) -> *mut u8 {
     use std::ptr;
     match op {
-        // Entrypoint.
-        0 => {
-            entry();
-
-            ptr::null_mut()
-        }
-
         // Allocate.
-        1 => {
+        opcode::ALLOC => {
             alloc(a as usize)
         }
 
         // Deallocate.
-        2 => {
+        opcode::DEALLOC => {
             unsafe {
                 dealloc(a, b);
             }
@@ -32,7 +31,7 @@ pub fn incoming(entry: fn(), op: u32, a: u32, b: u32) -> *mut u8 {
         }
 
         // Callback.
-        3 => {
+        opcode::CALLBACK => {
             unsafe {
                 callback(a as *mut u8)
             }

@@ -7,10 +7,10 @@
 //! Refresher:
 //!
 //! ```rust,no_run
-//! #[macro_use] extern crate stasis;
+//! extern crate stasis;
 //! use stasis::{console, Module};
 //!
-//! stasis! {{
+//! fn main() {
 //!     let module = Module::new();
 //!
 //!     module.register("random", r#"
@@ -22,7 +22,7 @@
 //!     let n: f32 = module.call("random", ());
 //!
 //!     console::log(n);
-//! }}
+//! }
 //! ```
 //!
 //! ## `struct Random`
@@ -32,10 +32,8 @@
 //! this impl:
 //!
 //! ```rust,no_run
-//! # #[macro_use] extern crate stasis;
+//! # extern crate stasis;
 //! # use stasis::{console, Module};
-//! // ...
-//!
 //! struct Random(Module);
 //!
 //! impl Default for Random {
@@ -51,9 +49,6 @@
 //!         Random(module)
 //!     }
 //! }
-//!
-//! // ...
-//! # stasis! {{}}
 //! ```
 //!
 //! ## `static MODULE`
@@ -62,7 +57,7 @@
 //! global with the `Global` type.
 //!
 //! ```rust,no_run
-//! # #[macro_use] extern crate stasis;
+//! # extern crate stasis;
 //! // ...
 //!
 //! // We import `Global` here
@@ -83,7 +78,6 @@
 //! #     }
 //! # }
 //! // ...
-//! # stasis! {{}}
 //! ```
 //!
 //! ## `fn random()`
@@ -91,7 +85,7 @@
 //! Finally, we can use this global value to write a wrapper function:
 //!
 //! ```rust,no_run
-//! # #[macro_use] extern crate stasis;
+//! # extern crate stasis;
 //! # use stasis::{console, Module, global::Global};
 //! # static MODULE: Global<Random> = Global::INIT;
 //! // ...
@@ -118,13 +112,12 @@
 //! #         Random(module)
 //! #     }
 //! # }
-//! # stasis! {{}}
 //! ```
 //!
 //! ## Complete example
 //!
 //! ```rust,no_run
-//! #[macro_use] extern crate stasis;
+//! extern crate stasis;
 //! use stasis::{console, Module, global::Global};
 //!
 //! static MODULE: Global<Random> = Global::INIT;
@@ -154,7 +147,7 @@
 //!         .call("random", ())
 //! }
 //!
-//! stasis! {{
+//! fn main() {
 //!     console::log(random());
-//! }}
+//! }
 //! ```

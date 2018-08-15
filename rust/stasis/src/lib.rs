@@ -20,35 +20,6 @@ pub mod callbacks;
 pub mod tutorial;
 pub mod futures;
 
-#[macro_export]
-/// Declare the main function.
-///
-/// This is equivalent to `fn main() { ... }`, however it also declares hooks
-/// necessary for stasis to load the binary.
-macro_rules! stasis {
-    ($body:block) => {
-        #[allow(unused)]
-        #[doc(hidden)]
-        fn main() {}
-
-        #[no_mangle]
-        #[doc(hidden)]
-        pub extern "C" fn __stasis_callback(op: u32, a: u32, b: u32) -> *mut u8 {
-            /// User-defined entrypoint.
-            fn entry() $body
-
-            /// Wrapper around user entrypoint that will load the stasis
-            /// entrypoint first.
-            fn wrapper() {
-                $crate::load();
-                entry();
-            }
-
-            $crate::stasis_internals::incoming::incoming(wrapper, op, a, b)
-        }
-    }
-}
-
 /// A unique module instance.
 #[derive(Clone, Copy)]
 pub struct Module {
@@ -144,11 +115,11 @@ pub mod console {
     }
 }
 
-/// Setup the panic handler.
-fn setup_panic() {
-    use std::panic;
-
-    panic::set_hook(Box::new(|info| {
+/// Setup a panic handler.
+///
+/// This sends all panics to the console.
+pub fn setup_panic() {
+    std::panic::set_hook(Box::new(|info| {
         let message = info
             .location()
             .map(|loc| {
@@ -171,9 +142,4 @@ fn setup_panic() {
 
         console::error(&s);
     }));
-}
-
-#[doc(hidden)]
-pub fn load() {
-    setup_panic();
 }

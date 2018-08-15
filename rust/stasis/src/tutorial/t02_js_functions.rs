@@ -7,13 +7,13 @@
 //! going to start off by importing and initializing a `Module` instance.
 //!
 //! ```rust,no_run
-//! #[macro_use] extern crate stasis;
+//! extern crate stasis;
 //!
 //! use stasis::Module;
 //!
-//! stasis! {{
+//! fn main() {
 //!     let module = Module::new();
-//! }}
+//! }
 //! ```
 //!
 //! ## Registering JavaScript code
@@ -21,10 +21,10 @@
 //! To call into JavaScript code, we must first register a JavaScript function.
 //!
 //! ```rust,no_run
-//! # #[macro_use] extern crate stasis;
+//! # extern crate stasis;
 //! # use stasis::Module;
 //! // ...
-//! stasis! {{
+//! fn main() {
 //!     let module = Module::new();
 //!
 //!     module.register("random", r#"
@@ -32,7 +32,7 @@
 //!             return Math.random();
 //!         }
 //!     "#);
-//! }}
+//! }
 //! ```
 //!
 //! ## Calling JavaScript code.
@@ -40,11 +40,9 @@
 //! Now let's call this function. The return type must explicitly be annotated.
 //!
 //! ```rust,no_run
-//! # #[macro_use] extern crate stasis;
+//! # extern crate stasis;
 //! # use stasis::{console, Module};
-//! // ...
-//! stasis! {{
-//!     // ...
+//! # fn main() {
 //! #     let module = Module::new();
 //! #
 //! #     module.register("random", r#"
@@ -52,10 +50,10 @@
 //! #             return Math.random();
 //! #         }
 //! #     "#);
-//!     let n: f32 = module.call("random", ());
+//! let n: f32 = module.call("random", ());
 //!
-//!     console::log(n);
-//! }}
+//! console::log(n);
+//! # }
 //! ```
 //!
 //! This will print out our random number. The second argument given to `call`
@@ -68,7 +66,7 @@
 //! #[macro_use] extern crate stasis;
 //! use stasis::{console, Module};
 //!
-//! stasis! {{
+//! fn main() {
 //!     let module = Module::new();
 //!
 //!     module.register("random", r#"
@@ -80,5 +78,5 @@
 //!     let n: f32 = module.call("random", ());
 //!
 //!     console::log(n);
-//! }}
+//! }
 //! ```
