@@ -1,4 +1,4 @@
-![Stasis](art.jpg)
+![Stasis](art.png)
 
 A complete runtime for rust applications in the browser.
 
