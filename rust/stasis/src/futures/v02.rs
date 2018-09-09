@@ -16,11 +16,15 @@ use futures_v02x::{
 
 static POOL: Global<Pool> = Global::INIT;
 
+/// Futures stored in the pool.
 type Boxed = Box<Future<Item = (), Error = Never> + 'static + Send>;
 
 #[derive(Default)]
 struct Pool {
-    current: u32,
+    /// An incrementing ID counter.
+    counter: u32,
+
+    /// All futures stored by ID.
     futures: HashMap<u32, Boxed>,
 }
 
@@ -72,8 +76,8 @@ impl Executor for StasisExecutor {
     fn spawn(&mut self, f: Boxed) -> Result<(), SpawnError> {
         let mut lock = POOL.lock();
 
-        let id = lock.current;
-        lock.current += 1;
+        let id = lock.counter;
+        lock.counter += 1;
 
         lock.futures.insert(id, f);
 

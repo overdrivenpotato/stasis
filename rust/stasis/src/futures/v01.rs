@@ -16,14 +16,14 @@ type Boxed = Box<Future<Item = (), Error = ()> + 'static + Send>;
 
 #[derive(Default)]
 struct Pool {
-    current: usize,
+    counter: usize,
     futures: HashMap<usize, Spawn<Boxed>>,
 }
 
 impl Pool {
     fn next(&mut self) -> usize {
-        self.current += 1;
-        self.current
+        self.counter += 1;
+        self.counter
     }
 }
 
